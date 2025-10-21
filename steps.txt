@@ -1,0 +1,119 @@
+🧱 Step 1 — Create the Project Structure
+
+Make your folders and files first — even empty ones.
+From your terminal:
+
+mkdir -p vaultcli/vaultcli
+mkdir vaultcli/tests
+touch vaultcli/vaultcli/__init__.py
+touch vaultcli/vaultcli/{cli.py,storage.py,encryption.py,auth.py,password_gen.py,utils.py}
+touch vaultcli/tests/{test_storage.py,test_encryption.py,test_auth.py}
+touch vaultcli/requirements.txt
+touch vaultcli/conventions.md
+touch vaultcli/README.md
+
+
+Now your structure looks professional, even before writing a single line of code.
+
+⚙️ Step 2 — Create a Minimal CLI Entry Point
+
+Start small — you want something that runs when you type a command.
+In cli.py, just write a few placeholder lines later (we’ll do that soon).
+For now, decide whether you’ll use argparse (built-in, simple) or click (nicer syntax).
+If you’re new to Python, argparse is totally fine and great practice.
+
+🧠 Step 3 — Define the Core Commands You’ll Implement
+
+Think of what your CLI should be able to do once it’s complete.
+You don’t write them yet — just plan them.
+
+Example commands:
+
+setup → Create master password & vault file.
+
+add → Add a new credential.
+
+get → Retrieve credentials.
+
+list → Show all saved entries.
+
+delete → Remove an entry.
+
+generate → Create a random password.
+
+You’ll eventually connect each to a function in a different module.
+(That’s the point of modular design.)
+
+🔒 Step 4 — Start with the Foundation: Authentication
+
+Before encryption, before data — start with master password setup.
+You’ll write code to:
+
+Ask the user for a master password (using getpass).
+
+Hash it (using hashlib or bcrypt).
+
+Save the hash locally (so you can verify it later).
+
+This gives your program a sense of identity — a first real feature.
+
+💾 Step 5 — Next, Move to Storage
+
+After you can verify the user, create the functions to save and load the vault.
+For now, you can store data as plain JSON — encryption comes next.
+This lets you test reading/writing logic safely before adding complexity.
+
+🔐 Step 6 — Implement Encryption
+
+When the basic vault works, replace your plain save/load logic with encrypted storage using the cryptography library (Fernet).
+You’ll encrypt the entire JSON blob, not each password individually.
+
+🧩 Step 7 — Add Commands One by One
+
+Once the core (auth + storage + encryption) works, add your commands gradually:
+
+add
+
+get
+
+list
+
+delete
+
+(Optional) generate
+
+Test each as you go.
+
+🧪 Step 8 — Add Tests
+
+Every time you finish one module (like encryption.py), write one or two tests for it.
+Don’t wait until the end — you’ll learn more by testing early.
+
+🧼 Step 9 — Polish & Document
+
+Add:
+
+A short README.md (project purpose, usage examples).
+
+Run black for formatting and ruff or flake8 for linting.
+
+Update requirements.txt with what you used (cryptography, maybe rich).
+
+🚀 Step 10 — Package It
+
+Once it’s working, make it installable:
+
+Add setup.py
+
+Then run pip install -e . inside the project folder.
+Now you can run your CLI from anywhere with:
+
+vault
+
+
+So in short, the right order to start is:
+
+Structure → Authentication → Storage → Encryption → Commands → Tests → Polish
+
+If you want, I can help you plan the first implementation phase (the authentication part) — I’ll guide you through what functions to create, their purpose, and data flow (without giving the code).
+Would you like to start there?
