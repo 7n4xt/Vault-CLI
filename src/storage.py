@@ -54,20 +54,23 @@ def list_entries(vault_data):
     List all entry names in the vault data.
     
     Args:
-        vault_data (dict): The current vault data.
-    Returns:
-        list: A list of entry names.
-    """
-
-def save_vault(vault_data, path, master_password):
-    """
-    Save the vault data to the specified path.
-    
-    Args:
-        vault_data (dict): The current vault data.
-        path (str): The file path where the vault will be saved.
-        master_password (str): The master password to secure the vault.
+        vault_data (dict): The current vault data, expected to have an "entries" key.
     
     Returns:
-        bool: True if the vault was successfully saved, False otherwise.
+        list: A list of entry names (strings or other hashable keys).
+    
+    Raises:
+        KeyError: If "entries" is missing from vault_data.
+        TypeError: If vault_data["entries"] is not dict-like.
     """
+    if not isinstance(vault_data, dict):
+        raise TypeError("vault_data must be a dictionary.")
+    
+    entries = vault_data.get("entries")
+    if entries is None:
+        raise KeyError("vault_data must contain an 'entries' key.")
+    
+    if not hasattr(entries, "keys"):
+        raise TypeError("vault_data['entries'] must be dict-like.")
+    
+    return list(entries.keys())
