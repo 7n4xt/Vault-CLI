@@ -15,7 +15,6 @@ def init_vault(path, master_password):
 
         master_password_data = {
             "password": master_password,
-            "length": len(master_password),
             "path": path
         }
 
