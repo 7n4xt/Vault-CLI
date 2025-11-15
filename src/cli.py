@@ -4,14 +4,13 @@ This file contains a compact, commit-sized implementation for the first
 interface task: an `init` subcommand to create an encrypted vault file.
 """
 import argparse
-import getpass
-from src import storage
+from src import storage, auth
 
 
 def cmd_init(args: argparse.Namespace) -> None:
 	"""Create an empty encrypted vault at the given path using a master password."""
 	path = args.path
-	pw = getpass.getpass("Master password: ")
+	pw = auth.get_master_password()
 	vault = {"metadata": {"created_at": "2025-11-15"}, "entries": []}
 	storage.save_vault(path, vault, pw)
 	print(f"Initialized encrypted vault at {path}")
@@ -37,20 +36,20 @@ def main() -> None:
 		cmd_init(args)
 	elif args.command == "add":
 		# prompt for master password and for entry password if not supplied
-		mpw = getpass.getpass("Master password: ")
-		pwd = args.password or getpass.getpass("Entry password: ")
+		mpw = auth.get_master_password()
+		pwd = args.password or auth.get_entry_password()
 		vault = storage.load_vault(args.path, mpw)
 		storage.add_entry(vault, args.name, args.username, pwd)
 		storage.save_vault(args.path, vault, mpw)
 		print(f"Added entry '{args.name}' to {args.path}")
 	elif args.command == "list":
-		mpw = args.mpw or getpass.getpass("Master password: ")
+		mpw = args.mpw or auth.get_master_password()
 		vault = storage.load_vault(args.path, mpw)
 		names = storage.list_entries(vault)
 		for n in names:
 			print(n)
 	elif args.command == "get":
-		mpw = args.mpw or getpass.getpass("Master password: ")
+		mpw = args.mpw or auth.get_master_password()
 		vault = storage.load_vault(args.path, mpw)
 		entry = storage.get_entry(vault, args.name)
 		if entry is None:
