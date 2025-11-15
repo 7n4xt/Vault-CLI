@@ -114,6 +114,3 @@ vault
 So in short, the right order to start is:
 
 Structure → Authentication → Storage → Encryption → Commands → Tests → Polish
-
-If you want, I can help you plan the first implementation phase (the authentication part) — I’ll guide you through what functions to create, their purpose, and data flow (without giving the code).
-Would you like to start there?
