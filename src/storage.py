@@ -1,4 +1,8 @@
-def add_entry(vault_data, name, username, password):
+from typing import Dict, Any
+from . import encryption
+
+
+def add_entry(vault_data: Dict[str, Any], name: str, username: str, password: str) -> Dict[str, Any]:
     """
     Add a new entry to the vault data.
     
@@ -23,7 +27,7 @@ def add_entry(vault_data, name, username, password):
     vault_data["entries"].append(new_entry)
     return vault_data
 
-def get_entry(vault_data, name):
+def get_entry(vault_data: Dict[str, Any], name: str):
     """
     Retrieve an entry from the vault data by name.
     
@@ -37,7 +41,7 @@ def get_entry(vault_data, name):
                 return entry
     return None
 
-def delete_entry(vault_data, name):
+def delete_entry(vault_data: Dict[str, Any], name: str) -> Dict[str, Any]:
     """
     Delete an entry from the vault data by name.
     
@@ -49,7 +53,7 @@ def delete_entry(vault_data, name):
         vault_data["entries"] = [entry for entry in vault_data["entries"] if entry["name"] != name]
     return vault_data
 
-def list_entries(vault_data):
+def list_entries(vault_data: Dict[str, Any]) -> list:
     """
     List all entry names in the vault data.
     
@@ -68,9 +72,24 @@ def list_entries(vault_data):
     
     entries = vault_data.get("entries")
     if entries is None:
-        raise KeyError("vault_data must contain an 'entries' key.")
-    
-    if not hasattr(entries, "keys"):
-        raise TypeError("vault_data['entries'] must be dict-like.")
-    
-    return list(entries.keys())
+        return []
+
+    # entries expected to be a list of dicts with a 'name' key
+    if not isinstance(entries, list):
+        raise TypeError("vault_data['entries'] must be a list of entry dicts.")
+
+    return [e.get("name") for e in entries if isinstance(e, dict) and "name" in e]
+
+
+def save_vault(path: str, vault_data: Dict[str, Any], master_password: str) -> None:
+    """
+    Save vault data encrypted to disk at `path` using `master_password`.
+    """
+    encryption.save_encrypted(path, vault_data, master_password)
+
+
+def load_vault(path: str, master_password: str) -> Dict[str, Any]:
+    """
+    Load and decrypt vault data from `path` using `master_password`.
+    """
+    return encryption.load_encrypted(path, master_password)
