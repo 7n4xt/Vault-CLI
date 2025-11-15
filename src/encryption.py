@@ -1,60 +1,123 @@
 import json
+import os
+import base64
+from typing import Any, Dict
 
-def init_vault(path, master_password):
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+
+def _b64encode(data: bytes) -> str:
+    return base64.b64encode(data).decode("utf-8")
+
+
+def _b64decode(data: str) -> bytes:
+    return base64.b64decode(data.encode("utf-8"))
+
+
+def derive_key(password: str, salt: bytes, iterations: int = 200_000) -> bytes:
     """
-    Initialize a secure vault at the specified path using the provided master password.
-    
+    Derive a 256-bit key from a password and salt using PBKDF2-HMAC-SHA256.
+
     Args:
-        path (str): The file path where the vault will be created.
-        master_password (str): The master password to secure the vault.
-    
+        password (str): The master password.
+        salt (bytes): A cryptographic salt.
+        iterations (int): Number of PBKDF2 iterations.
+
     Returns:
-        bool: True if the vault was successfully initialized, False otherwise.
+        bytes: A 32-byte derived key.
     """
-    try:
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=iterations,
+    )
+    return kdf.derive(password.encode("utf-8"))
 
-        master_password_data = {
-            "password": master_password,
-            "path": path
-        }
 
-        with open(path, 'w', encoding='utf-8') as vault_file:
-            json.dump(master_password_data, vault_file, indent=4)
-        
-        return True
-    except Exception as e:
-        print(f"Error initializing vault: {e}")
-        return False
-    
-def load_vault(path):
+def encrypt_bytes(plaintext: bytes, password: str, iterations: int = 200_000) -> Dict[str, Any]:
     """
-    Load the vault data from the specified path.
-    
+    Encrypt raw bytes using a password. Uses PBKDF2 for key derivation and AES-GCM for encryption.
+
+    Returns a JSON-serializable dict containing base64-encoded salt, nonce and ciphertext.
+    """
+    salt = os.urandom(16)
+    key = derive_key(password, salt, iterations=iterations)
+    aesgcm = AESGCM(key)
+    nonce = os.urandom(12)
+    ciphertext = aesgcm.encrypt(nonce, plaintext, None)
+
+    return {
+        "salt": _b64encode(salt),
+        "nonce": _b64encode(nonce),
+        "ciphertext": _b64encode(ciphertext),
+        "iterations": iterations,
+        "kdf": "pbkdf2_sha256",
+        "cipher": "aes_gcm",
+    }
+
+
+def decrypt_bytes(payload: Dict[str, Any], password: str) -> bytes:
+    """
+    Decrypt bytes previously encrypted with `encrypt_bytes`.
+
     Args:
-        path (str): The file path where the vault is located.
-    
+        payload (dict): The dict produced by `encrypt_bytes`.
+        password (str): The password used to derive the key.
+
     Returns:
-        dict: The vault data if successfully loaded, None otherwise.
+        bytes: The decrypted plaintext.
     """
-    try:
-        with open(path, 'r', encoding='utf-8') as vault_file:
-            vault_data = json.load(vault_file)
-        print("Vault loaded successfully.")
-        return vault_data
-    except Exception as e:
-        print(f"Error loading vault: {e}")
-        return None
+    salt = _b64decode(payload["salt"])
+    nonce = _b64decode(payload["nonce"])
+    ciphertext = _b64decode(payload["ciphertext"])
+    iterations = int(payload.get("iterations", 200_000))
+
+    key = derive_key(password, salt, iterations=iterations)
+    aesgcm = AESGCM(key)
+    return aesgcm.decrypt(nonce, ciphertext, None)
 
 
-def save_vault(vault_data, path, master_password):
+def encrypt_json(data: Dict[str, Any], password: str, iterations: int = 200_000) -> str:
     """
-    Save the vault data to the specified path.
-    
-    Args:
-        vault_data (dict): The current vault data.
-        path (str): The file path where the vault will be saved.
-        master_password (str): The master password to secure the vault.
-    
-    Returns:
-        bool: True if the vault was successfully saved, False otherwise.
+    Encrypt a JSON-serializable dictionary and return a compact JSON string containing
+    the encrypted payload (base64 fields).
     """
+    plaintext = json.dumps(data, separators=(",", ":")).encode("utf-8")
+    payload = encrypt_bytes(plaintext, password, iterations=iterations)
+    return json.dumps(payload, separators=(",", ":"))
+
+
+def decrypt_json(encrypted_json: str, password: str) -> Dict[str, Any]:
+    """
+    Decrypt a JSON string produced by `encrypt_json` and return the original dictionary.
+    """
+    payload = json.loads(encrypted_json)
+    plaintext = decrypt_bytes(payload, password)
+    return json.loads(plaintext.decode("utf-8"))
+
+
+def save_encrypted(path: str, data: Dict[str, Any], password: str, iterations: int = 200_000) -> None:
+    """
+    Atomically save encrypted data to `path` using `password`.
+
+    Raises exceptions on I/O or encryption errors.
+    """
+    encrypted = encrypt_json(data, password, iterations=iterations)
+    tmp = f"{path}.tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        fh.write(encrypted)
+    os.replace(tmp, path)
+
+
+def load_encrypted(path: str, password: str) -> Dict[str, Any]:
+    """
+    Load and decrypt data from `path` using `password`.
+
+    Raises exceptions on I/O or decryption errors.
+    """
+    with open(path, "r", encoding="utf-8") as fh:
+        encrypted = fh.read()
+    return decrypt_json(encrypted, password)
