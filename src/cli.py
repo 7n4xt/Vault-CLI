@@ -5,6 +5,7 @@ interface task: an `init` subcommand to create an encrypted vault file.
 """
 import argparse
 from src import storage, auth
+from src import password_gen
 
 
 def cmd_init(args: argparse.Namespace) -> None:
@@ -34,6 +35,12 @@ def main() -> None:
 	delete_p = sub.add_parser("delete", help="Delete an entry by name")
 	delete_p.add_argument("--name", required=True, help="Entry name to delete")
 	delete_p.add_argument("--mpw", required=False, help="Master password (optional)")
+	# generate command
+	gen_p = sub.add_parser("generate", help="Generate a secure password")
+	gen_p.add_argument("--length", type=int, default=16, help="Password length")
+	gen_p.add_argument("--no-symbols", action="store_true", help="Exclude symbols")
+	gen_p.add_argument("--no-upper", action="store_true", help="Exclude uppercase letters")
+	gen_p.add_argument("--no-digits", action="store_true", help="Exclude digits")
 
 	args = parser.parse_args()
 	if args.command == "init":
@@ -74,6 +81,15 @@ def main() -> None:
 		storage.delete_entry(vault, args.name)
 		storage.save_vault(args.path, vault, mpw)
 		print(f"Deleted entry '{args.name}' from {args.path}")
+	elif args.command == "generate":
+		pw, entropy = password_gen.generate_password(
+			length=args.length,
+			use_symbols=not args.no_symbols,
+			use_upper=not args.no_upper,
+			use_digits=not args.no_digits,
+		)
+		print(pw)
+		print(f"Estimated entropy: {entropy:.1f} bits")
 	else:
 		parser.print_help()
 
