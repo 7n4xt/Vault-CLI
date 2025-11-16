@@ -94,9 +94,29 @@ def decrypt_json(encrypted_json: str, password: str) -> Dict[str, Any]:
     """
     Decrypt a JSON string produced by `encrypt_json` and return the original dictionary.
     """
-    payload = json.loads(encrypted_json)
-    plaintext = decrypt_bytes(payload, password)
-    return json.loads(plaintext.decode("utf-8"))
+    # Try to parse as encrypted payload first. If it doesn't look like the
+    # expected encrypted dict, fall back to assuming it's plaintext JSON.
+    try:
+        payload = json.loads(encrypted_json)
+    except json.JSONDecodeError:
+        # not JSON at all
+        raise ValueError("Vault file is not valid JSON or encrypted payload")
+
+    # Heuristic: encrypted payload should contain the 'ciphertext' key
+    if isinstance(payload, dict) and "ciphertext" in payload:
+        try:
+            plaintext = decrypt_bytes(payload, password)
+            return json.loads(plaintext.decode("utf-8"))
+        except Exception as exc:
+            # map cryptography InvalidTag to a clearer error
+            from cryptography.exceptions import InvalidTag
+
+            if isinstance(exc, InvalidTag):
+                raise ValueError("Decryption failed: wrong password or corrupted file") from exc
+            raise
+
+    # Not an encrypted payload — assume it's plaintext JSON data and return it
+    return payload
 
 
 def save_encrypted(path: str, data: Dict[str, Any], password: str, iterations: int = 200_000) -> None:
