@@ -116,6 +116,9 @@ def decrypt_json(encrypted_json: str, password: str) -> Dict[str, Any]:
             raise
 
     # Not an encrypted payload — assume it's plaintext JSON data and return it
+    # Mark it so callers can detect a legacy plaintext vault and migrate
+    if isinstance(payload, dict):
+        payload["_was_plaintext"] = True
     return payload
 
 

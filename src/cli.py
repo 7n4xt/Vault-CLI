@@ -11,6 +11,10 @@ from src import password_gen
 def cmd_init(args: argparse.Namespace) -> None:
 	"""Create an empty encrypted vault at the given path using a master password."""
 	path = args.path
+	# prompt for path if user passed no --path
+	if not path:
+		path = input("Vault path to create: ").strip() or "vault.enc"
+	# set master password interactively
 	pw = auth.get_master_password()
 	vault = {"metadata": {"created_at": "2025-11-15"}, "entries": []}
 	storage.save_vault(path, vault, pw)
@@ -52,6 +56,13 @@ def main() -> None:
 		mpw = auth.get_master_password()
 		pwd = args.password or auth.get_entry_password()
 		vault = storage.load_vault(args.path, mpw)
+		# migrate plaintext vaults to encrypted on first save if detected
+		if isinstance(vault, dict) and vault.pop("_was_plaintext", False):
+			print("Detected plaintext vault file. You can set a master password to encrypt it.")
+			newpw = auth.get_master_password("Set master password to encrypt vault: ")
+			if newpw:
+				storage.save_vault(args.path, vault, newpw)
+				print("Vault encrypted and saved.")
 		# interactive prompts for missing fields
 		name = args.name
 		if not name or not name.strip():
