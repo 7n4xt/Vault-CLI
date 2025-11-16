@@ -43,6 +43,14 @@ def main() -> None:
 		mpw = auth.get_master_password()
 		pwd = args.password or auth.get_entry_password()
 		vault = storage.load_vault(args.path, mpw)
+		# validation: name must not be empty
+		if not args.name or not args.name.strip():
+			print("Entry name cannot be empty")
+			return
+		# avoid duplicates
+		if storage.get_entry(vault, args.name) is not None:
+			print(f"Entry '{args.name}' already exists")
+			return
 		storage.add_entry(vault, args.name, args.username, pwd)
 		storage.save_vault(args.path, vault, mpw)
 		print(f"Added entry '{args.name}' to {args.path}")
