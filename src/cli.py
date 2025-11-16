@@ -23,8 +23,8 @@ def main() -> None:
 	sub = parser.add_subparsers(dest="command")
 	sub.add_parser("init", help="Initialize a new encrypted vault")
 	add_p = sub.add_parser("add", help="Add a new entry to the vault")
-	add_p.add_argument("--name", required=True, help="Entry name")
-	add_p.add_argument("--username", required=True, help="Username for the entry")
+	add_p.add_argument("--name", required=False, help="Entry name (will prompt if missing)")
+	add_p.add_argument("--username", required=False, help="Username for the entry (will prompt if missing)")
 	add_p.add_argument("--password", required=False, help="Password for the entry (will prompt if missing)")
 	list_p = sub.add_parser("list", help="List all entries in the vault")
 	list_p.add_argument("--mpw", required=False, help="Master password (optional; avoids interactive prompt)")
@@ -33,7 +33,7 @@ def main() -> None:
 	get_p.add_argument("--mpw", required=False, help="Master password (optional)")
 	# delete command
 	delete_p = sub.add_parser("delete", help="Delete an entry by name")
-	delete_p.add_argument("--name", required=True, help="Entry name to delete")
+	delete_p.add_argument("--name", required=False, help="Entry name to delete (will prompt if missing)")
 	delete_p.add_argument("--mpw", required=False, help="Master password (optional)")
 	# generate command
 	gen_p = sub.add_parser("generate", help="Generate a secure password")
@@ -52,23 +52,42 @@ def main() -> None:
 		mpw = auth.get_master_password()
 		pwd = args.password or auth.get_entry_password()
 		vault = storage.load_vault(args.path, mpw)
-		# validation: name must not be empty
-		if not args.name or not args.name.strip():
-			print("Entry name cannot be empty")
-			return
+		# interactive prompts for missing fields
+		name = args.name
+		if not name or not name.strip():
+			name = input("Entry name: ").strip()
+			if not name:
+				print("Entry name cannot be empty")
+				return
+		username = args.username or input("Username: ").strip()
+		# password: offer generated suggestion if not provided
+		if not args.password:
+			suggested, ent = password_gen.generate_password(16)
+			print(f"Suggested password (entropy {ent:.1f} bits): {suggested}")
+			use_s = input("Use suggested password? (Y/n): ").strip().lower()
+			if use_s in ("", "y", "yes"):
+				pwd = suggested
+			else:
+				pwd = auth.get_entry_password()
+		else:
+			pwd = args.password or auth.get_entry_password()
 		# avoid duplicates
-		if storage.get_entry(vault, args.name) is not None:
-			print(f"Entry '{args.name}' already exists")
+		if storage.get_entry(vault, name) is not None:
+			print(f"Entry '{name}' already exists")
 			return
-		storage.add_entry(vault, args.name, args.username, pwd)
+		storage.add_entry(vault, name, username, pwd)
 		storage.save_vault(args.path, vault, mpw)
-		print(f"Added entry '{args.name}' to {args.path}")
+		print(f"Added entry '{name}' to {args.path}")
 	elif args.command == "list":
 		mpw = args.mpw or auth.get_master_password()
 		vault = storage.load_vault(args.path, mpw)
 		names = storage.list_entries(vault)
 		for n in names:
-			print(n)
+			entry = storage.get_entry(vault, n)
+			if entry:
+				print(f"- {n}: {entry.get('username')}\t({len(entry.get('password',''))} chars)")
+			else:
+				print(f"- {n}")
 	elif args.command == "get":
 		mpw = args.mpw or auth.get_master_password()
 		vault = storage.load_vault(args.path, mpw)
@@ -80,9 +99,32 @@ def main() -> None:
 	elif args.command == "delete":
 		mpw = args.mpw or auth.get_master_password()
 		vault = storage.load_vault(args.path, mpw)
-		storage.delete_entry(vault, args.name)
+		# if name not provided, list entries and prompt user to choose
+		name = args.name
+		if not name:
+			names = storage.list_entries(vault)
+			if not names:
+				print("No entries to delete")
+				return
+			for i, n in enumerate(names, start=1):
+				print(f"{i}. {n}")
+			choice = input("Choose entry number or name to delete: ").strip()
+			if choice.isdigit():
+				idx = int(choice) - 1
+				if 0 <= idx < len(names):
+					name = names[idx]
+				else:
+					print("Invalid selection")
+					return
+			else:
+				name = choice
+		confirm = input(f"Delete '{name}'? (y/N): ").strip().lower()
+		if confirm not in ("y", "yes"):
+			print("Aborted")
+			return
+		storage.delete_entry(vault, name)
 		storage.save_vault(args.path, vault, mpw)
-		print(f"Deleted entry '{args.name}' from {args.path}")
+		print(f"Deleted entry '{name}' from {args.path}")
 	elif args.command == "generate":
 		pw, entropy = password_gen.generate_password(
 			length=args.length,
