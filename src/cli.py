@@ -37,6 +37,8 @@ def main() -> None:
 	delete_p.add_argument("--mpw", required=False, help="Master password (optional)")
 	# generate command
 	gen_p = sub.add_parser("generate", help="Generate a secure password")
+	# help command prints full help plus quick examples
+	help_p = sub.add_parser("help", help="Show detailed help and examples")
 	gen_p.add_argument("--length", type=int, default=16, help="Password length")
 	gen_p.add_argument("--no-symbols", action="store_true", help="Exclude symbols")
 	gen_p.add_argument("--no-upper", action="store_true", help="Exclude uppercase letters")
@@ -90,6 +92,16 @@ def main() -> None:
 		)
 		print(pw)
 		print(f"Estimated entropy: {entropy:.1f} bits")
+	elif args.command == "help":
+		parser.print_help()
+		print(
+			'''
+Examples:
+  python3 -m src.cli init --path vault.enc
+  python3 -m src.cli add --name github --username you --password secret
+  python3 -m src.cli generate --length 20
+			'''
+		)
 	else:
 		parser.print_help()
 
