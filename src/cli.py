@@ -30,6 +30,10 @@ def main() -> None:
 	get_p = sub.add_parser("get", help="Get a single entry by name")
 	get_p.add_argument("--name", required=True, help="Entry name to retrieve")
 	get_p.add_argument("--mpw", required=False, help="Master password (optional)")
+	# delete command
+	delete_p = sub.add_parser("delete", help="Delete an entry by name")
+	delete_p.add_argument("--name", required=True, help="Entry name to delete")
+	delete_p.add_argument("--mpw", required=False, help="Master password (optional)")
 
 	args = parser.parse_args()
 	if args.command == "init":
@@ -56,6 +60,12 @@ def main() -> None:
 			print(f"Entry '{args.name}' not found")
 		else:
 			print(entry)
+	elif args.command == "delete":
+		mpw = args.mpw or auth.get_master_password()
+		vault = storage.load_vault(args.path, mpw)
+		storage.delete_entry(vault, args.name)
+		storage.save_vault(args.path, vault, mpw)
+		print(f"Deleted entry '{args.name}' from {args.path}")
 	else:
 		parser.print_help()
 
